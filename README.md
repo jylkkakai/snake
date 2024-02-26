@@ -1,2 +1,2 @@
 # snake
-Snake game implementation of snake game.
+Snake game implementation in Go.
