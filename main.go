@@ -7,26 +7,21 @@ import (
 	"math/rand"
 	"slices"
 
-	//"io"
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/opentype"
 
-	//"golang.org/x/image/font/gofont/goitalic"
 	"golang.org/x/image/font/gofont/goregular"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	//"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/hajimehoshi/ebiten/v2/text"
 	"github.com/hajimehoshi/ebiten/v2/vector"
 )
 
 
-var gameFont font.Face
 
 func init()  {
 	f, err  := opentype.Parse(goregular.TTF)
-	//f, err  := opentype.ParseCollectionReaderAt(io.ByteReader("AtariClassic-gry3.ttf"))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -55,6 +50,28 @@ const (
 )
 
 var (
+
+	tickCounter int = 0
+	delay int = 30
+
+	up = coords{x: 0, y: -1}
+	down = coords{x: 0, y: 1}
+	left = coords{x: -1, y: 0}
+	right = coords{x: 1, y: 0}
+	direction coords
+
+	gameOn bool = false
+	score int = 0
+	snake []coords
+	apple coords
+	gameFont font.Face
+	gameOver = false
+
+	key []ebiten.Key
+)
+
+func initNewGame()  {
+		
 	snake = []coords{
 		{
 			x: 10,
@@ -72,40 +89,34 @@ var (
 	apple = coords{
 		x: 30,
 		y: 20,
-	}
-
-	tickCounter int = 0
-	delay int = 30
-
-
-	up = coords{x: 0, y: -1}
-	down = coords{x: 0, y: 1}
-	left = coords{x: -1, y: 0}
-	right = coords{x: 1, y: 0}
-	direction coords = down
-
-	gameOn bool = true
-	score int = 0
-
-	key []ebiten.Key
-)
+	}		
+	gameOn = true
+	gameOver = false
+	tickCounter = 0
+	delay = 30
+	score = 0
+	direction = down
+}
 
 func (g *Game) Update() error {
 
-	if gameOn {
-		key = inpututil.AppendPressedKeys(key[:0])
-		log.Println(key)
-		if len(key) > 0 {
-			if key[0] == ebiten.KeyArrowUp {
-				direction = up
-			} else if key[0] == ebiten.KeyArrowDown {
-				direction = down
-			} else if key[0] ==  ebiten.KeyArrowLeft {
-				direction = left
-			} else if key[0] == ebiten.KeyArrowRight {
-				direction = right
-			}
+
+	key = inpututil.AppendPressedKeys(key[:0])
+	if len(key) > 0 {
+		if key[0] == ebiten.KeyY && !gameOn {
+			initNewGame()	
 		}
+		if key[0] == ebiten.KeyArrowUp {
+			direction = up
+		} else if key[0] == ebiten.KeyArrowDown {
+			direction = down
+		} else if key[0] ==  ebiten.KeyArrowLeft {
+			direction = left
+		} else if key[0] == ebiten.KeyArrowRight {
+			direction = right
+		}
+	}
+	if gameOn {
 		if tickCounter >= delay {
 			temp := []coords{{x: direction.x + snake[0].x, y: direction.y + snake[0].y}}
 			snake = append(temp, snake...)
@@ -123,17 +134,17 @@ func (g *Game) Update() error {
 			tickCounter = 0
 		}
 		tickCounter++
-		if snake[0].y > gridHeight - 1 || snake[0].x > gridWidth - 1 || snake[0].y < 0 || snake[0].x < 0 {
+		if snake[0].y > gridHeight - 1 || snake[0].x > gridWidth - 1 || 
+			snake[0].y < 0 || snake[0].x < 0 || slices.Contains(snake[1:], snake[0]){
 			gameOn = false
+			gameOver = true
 		}
-		log.Println(gameOn, snake[0])
+		// log.Println(gameOn, gameOver, snake[0])
 	}
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	//ebitenutil.DebugPrint(screen, "Hello, World!")
-	//img := ebiten.NewImage(10, 10)
 	screen.Fill(color.Gray{100})
 	text.Draw(screen, fmt.Sprintf("%03d", score), gameFont, 560, 40, color.White) 
 	text.Draw(screen, "SNAKE", gameFont, 260, 40, color.White)
@@ -141,15 +152,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	vector.DrawFilledRect(screen, 20, 60, 600, 400, color.Black, false)
 	vector.StrokeRect(screen, 19, 59, 602, 402, 2, color.Gray{150}, false)
 
-	for i, bodyPart := range snake {
-		//log.Println(i,bodyPart.x*10 + 1, bodyPart.y*10 + 1, float32(bodyPart.x*10 + 1), float32(bodyPart.y*10 + 1))
-		if i == 0 {
-			vector.DrawFilledCircle(screen, float32(20 + bodyPart.x*10 + 5), float32(60 + bodyPart.y*10 + 5), 4, color.White, false)
-		} else {
-			vector.DrawFilledRect(screen, float32(20 + bodyPart.x*10 + 1), float32(60 + bodyPart.y*10 + 1), 8, 8, color.White, false)
+	if gameOn {
+		for i, bodyPart := range snake {
+			//log.Println(i,bodyPart.x*10 + 1, bodyPart.y*10 + 1, float32(bodyPart.x*10 + 1), float32(bodyPart.y*10 + 1))
+			if i == 0 {
+				vector.DrawFilledCircle(screen, float32(20 + bodyPart.x*10 + 5), float32(60 + bodyPart.y*10 + 5), 4, color.White, false)
+			} else {
+				vector.DrawFilledRect(screen, float32(20 + bodyPart.x*10 + 1), float32(60 + bodyPart.y*10 + 1), 8, 8, color.White, false)
+			}
+		}
+		vector.DrawFilledCircle(screen, float32(20 + apple.x*10 + 4), float32(60 + apple.y*10 + 4), 4, color.RGBA{0xff, 0, 0, 0xff}, false)
+	} else {
+		text.Draw(screen, "New game (y)", gameFont, 200, 200, color.White)
+		if gameOver {
+			text.Draw(screen, "Game Over", gameFont, 220, 300, color.White)
 		}
 	}
-	vector.DrawFilledCircle(screen, float32(20 + apple.x*10 + 4), float32(60 + apple.y*10 + 4), 4, color.RGBA{0xff, 0, 0, 0xff}, false)
 
 	// vector.DrawFilledRect(screen, 20 + 1, 60 + 1, 8, 8, color.White, false)
 	// vector.DrawFilledRect(screen, 620 + 1, 420 + 1, 8, 8, color.White, false)
